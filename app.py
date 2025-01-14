@@ -82,24 +82,42 @@ def main():
             border: 1px solid #cccccc;
         }
         
-        /* Estilos para contadores y medidores */
-        .palabra-contador {
-            font-size: 1.2em;
+        /* Estilos para la barra de progreso y texto */
+        .stProgress > div > div > div > div {
+            background-color: rgb(14, 17, 23);
+        }
+        
+        .stProgress > div > div > div {
+            color: #000000;
+            font-weight: 500;
+        }
+        
+        /* Estilos para información de tiempo */
+        .stInfo {
+            background-color: #f0f8ff;
+            color: #000000 !important;
+            border: 1px solid #add8e6;
             padding: 10px;
             border-radius: 5px;
-            margin: 10px 0;
-            background-color: #f8f9fa;
         }
         
-        .tiempo-estimado {
-            font-style: italic;
-            color: #666666;
-            margin-bottom: 15px;
+        .stInfo > div {
+            color: #000000 !important;
+            font-weight: 500;
         }
         
-        /* Estilos para mensajes del sistema */
-        .stSuccess, .stInfo, .stWarning {
-            color: #000000;
+        /* Estilos para mensajes de éxito */
+        .stSuccess {
+            background-color: #f0fff4;
+            color: #000000 !important;
+            border: 1px solid #c6f6d5;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .stSuccess > div {
+            color: #000000 !important;
+            font-weight: 500;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -136,10 +154,12 @@ def main():
     # Visualización del progreso
     col1, col2 = st.columns([2, 1])
     with col1:
+        st.markdown(f"**Progreso de escritura:**")
         st.progress(min(num_palabras / 300, 1.0), text=f"{num_palabras} palabras")
     with col2:
         tiempo_estimado = max(1, int(num_palabras / 30))
-        st.info(f"≈ {tiempo_estimado} min")
+        st.markdown(f"**Tiempo estimado:**")
+        st.info(f"≈ {tiempo_estimado} minutos")
     
     st.markdown(f"<div style='color: {color_barra};'>{mensaje}</div>", unsafe_allow_html=True)
     
