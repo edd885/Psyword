@@ -9,3 +9,9 @@ Esta aplicación permite a los pacientes realizar reflexiones pre-consulta y gen
 - Entrada de texto libre
 - Contador de palabras con retroalimentación visual
 - Generación de nube de palabras
+
+
+│── app.py
+│── requirements.txt
+│── README.md
+└── .gitignore
