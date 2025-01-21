@@ -1,206 +1,172 @@
 import streamlit as st
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')  # Configuración necesaria para Streamlit Cloud
 from wordcloud import WordCloud
 import nltk
 from nltk.corpus import stopwords
+from textblob import TextBlob
 import datetime
-import os
+import plotly.graph_objects as go
+import pandas as pd
+from collections import Counter
 
-def download_nltk_data():
-    """
-    Descarga los datos necesarios de NLTK si no están disponibles.
-    Esta función es crucial para el funcionamiento en Streamlit Cloud.
-    """
-    try:
-        nltk.data.find('corpora/stopwords')
-    except LookupError:
-        nltk.download('stopwords', quiet=True)
+# Descargar recursos necesarios de NLTK
+nltk.download('stopwords')
+nltk.download('punkt')
 
-def contar_palabras(texto):
-    """
-    Cuenta el número de palabras en el texto ingresado.
-    Ignora espacios en blanco múltiples y líneas vacías.
-    """
-    if not texto:
-        return 0
-    palabras = texto.strip().split()
-    return len(palabras)
+# Configuración inicial de la página
+st.set_page_config(
+    page_title="Espacio de Introspección",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-def obtener_color_progreso(num_palabras):
-    """
-    Determina el color de la barra de progreso basado en el número de palabras.
-    Retorna un color y un mensaje apropiado según el rango de palabras.
-    """
-    if num_palabras < 150:
-        return "orange", "Continúa escribiendo para obtener una mejor visualización"
-    elif num_palabras <= 300:
-        return "green", "¡Longitud ideal para el análisis!"
-    else:
-        return "blue", "Has superado la longitud recomendada, pero puedes continuar si lo deseas"
-
-def main():
-    # Asegurar que los datos de NLTK estén disponibles
-    download_nltk_data()
-    
-    # Configuración inicial de la página
-    st.set_page_config(
-        page_title="Notas Pre-Consulta",
-        page_icon="🧠",
-        layout="centered",
-        initial_sidebar_state="expanded",
-        menu_items=None
-    )
-
-    # Estilos personalizados para mejorar la visibilidad y contraste
-    st.markdown("""
-        <style>
-        /* Estilo general de la página */
-        .main {
-            background-color: #ffffff;
-            color: #000000;
-            padding: 2rem;
-        }
-        
-        /* Asegurar visibilidad de títulos */
-        h1, h2, h3 {
-            color: #000000 !important;
-            font-weight: bold;
-        }
-        
-        /* Estilos para campos de entrada */
-        .stTextInput > div > div > input {
-            background-color: #ffffff;
-            color: #000000;
-            border: 1px solid #cccccc;
-        }
-        
-        .stTextArea > div > div > textarea {
-            background-color: #ffffff;
-            color: #000000;
-            border: 1px solid #cccccc;
-        }
-        
-        /* Estilos para la barra de progreso y texto */
-        .stProgress > div > div > div > div {
-            background-color: rgb(14, 17, 23);
-        }
-        
-        .stProgress > div > div > div {
-            color: #000000;
-            font-weight: 500;
-        }
-        
-        /* Estilos para información de tiempo */
-        .stInfo {
-            background-color: #f0f8ff;
-            color: #000000 !important;
-            border: 1px solid #add8e6;
-            padding: 10px;
-            border-radius: 5px;
-        }
-        
-        .stInfo > div {
-            color: #000000 !important;
-            font-weight: 500;
-        }
-        
-        /* Estilos para mensajes de éxito */
-        .stSuccess {
-            background-color: #f0fff4;
-            color: #000000 !important;
-            border: 1px solid #c6f6d5;
-            padding: 10px;
-            border-radius: 5px;
-        }
-        
-        .stSuccess > div {
-            color: #000000 !important;
-            font-weight: 500;
-        }
-        </style>
+# Estilos personalizados
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f5f5f5;
+        padding: 2rem;
+    }
+    .stTextInput > div > div > input {
+        background-color: white;
+    }
+    .stTextArea > div > div > textarea {
+        background-color: white;
+        caret-color: #333;  /* Color del cursor */
+    }
+    .context-selector {
+        padding: 1rem;
+        border-radius: 5px;
+        margin-bottom: 1rem;
+    }
+    </style>
     """, unsafe_allow_html=True)
 
-    # Título y descripción principal
-    st.title("Espacio de Reflexión Pre-Consulta")
-    st.markdown("""
-        Este es un espacio seguro para expresar tus pensamientos y sentimientos 
-        antes de tu sesión. La longitud ideal es entre 150 y 300 palabras 
-        (aproximadamente 5-15 minutos de escritura).
-    """)
+def analyze_sentiment(text):
+    """Analiza el sentimiento del texto y retorna los porcentajes."""
+    blob = TextBlob(text)
+    # Obtener polaridad y subjetividad
+    polarity = blob.sentiment.polarity
+    subjectivity = blob.sentiment.subjectivity
     
-    # Sección de información personal
-    with st.expander("Información Personal", expanded=False):
+    # Categorizar sentimientos
+    if polarity > 0:
+        sentiment = "Positivo"
+        score = polarity
+    elif polarity < 0:
+        sentiment = "Negativo"
+        score = abs(polarity)
+    else:
+        sentiment = "Neutral"
+        score = 0.5
+        
+    return {
+        "Positivo": max(0, polarity) * 100,
+        "Negativo": abs(min(0, polarity)) * 100,
+        "Neutral": (1 - abs(polarity)) * 50,
+        "Subjetividad": subjectivity * 100
+    }
+
+def create_sentiment_chart(sentiments):
+    """Crea un gráfico de barras para los sentimientos."""
+    fig = go.Figure(data=[
+        go.Bar(
+            x=list(sentiments.keys()),
+            y=list(sentiments.values()),
+            marker_color=['#2ecc71', '#e74c3c', '#95a5a6', '#3498db']
+        )
+    ])
+    
+    fig.update_layout(
+        title="Análisis de Sentimientos",
+        yaxis_title="Porcentaje",
+        xaxis_title="Tipo de Sentimiento",
+        height=400
+    )
+    
+    return fig
+
+def analyze_text_metrics(text):
+    """Analiza métricas básicas del texto."""
+    words = nltk.word_tokenize(text)
+    return {
+        "Palabras totales": len(words),
+        "Palabras únicas": len(set(words)),
+        "Oraciones": len(nltk.sent_tokenize(text))
+    }
+
+def main():
+    # Selector de contexto
+    context = st.selectbox(
+        "Selecciona el contexto",
+        ["Personal", "Empresarial", "Psicología", "Académico"],
+        key="context"
+    )
+    
+    # Título y descripción
+    st.title("Espacio de Introspección")
+    st.markdown("""
+        <p style='font-size: 1.1em; color: #555;'>
+        Un espacio para explorar y analizar pensamientos y sentimientos.
+        Mientras más completo sea tu escrito, mejor será el análisis.
+        </p>
+    """, unsafe_allow_html=True)
+    
+    # Información del usuario
+    with st.expander("Datos de Usuario", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
             nombre = st.text_input("Nombre", key="nombre")
         with col2:
             fecha = st.date_input("Fecha", datetime.datetime.now())
     
-    # Área principal para escritura
-    st.markdown("### ¿Cómo te sientes hoy?")
-    texto_paciente = st.text_area(
+    # Área principal para escribir
+    st.markdown("### Introspección actual")
+    texto_usuario = st.text_area(
         "",
         height=200,
-        placeholder="Escribe libremente sobre tus pensamientos, sentimientos o preocupaciones...",
+        placeholder="Escribe libremente sobre tus pensamientos, sentimientos o reflexiones...",
         key="texto_principal"
     )
     
-    # Sistema de retroalimentación visual
-    num_palabras = contar_palabras(texto_paciente)
-    color_barra, mensaje = obtener_color_progreso(num_palabras)
-    
-    # Visualización del progreso
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.markdown(f"**Progreso de escritura:**")
-        st.progress(min(num_palabras / 300, 1.0), text=f"{num_palabras} palabras")
-    with col2:
-        tiempo_estimado = max(1, int(num_palabras / 30))
-        st.markdown(f"**Tiempo estimado:**")
-        st.info(f"≈ {tiempo_estimado} minutos")
-    
-    st.markdown(f"<div style='color: {color_barra};'>{mensaje}</div>", unsafe_allow_html=True)
-    
     # Procesamiento y visualización
-    if st.button("Generar Visualización", type="primary", disabled=num_palabras < 50):
-        if texto_paciente:
-            try:
-                # Configuración de stop words en español
-                stop_words = set(stopwords.words('spanish'))
-                
-                # Crear y configurar el word cloud
-                wordcloud = WordCloud(
-                    width=800,
-                    height=400,
-                    background_color='white',
-                    stopwords=stop_words,
-                    colormap='viridis',
-                    min_word_length=3
-                ).generate(texto_paciente)
-                
-                # Mostrar el word cloud
-                plt.figure(figsize=(10, 5))
-                plt.imshow(wordcloud, interpolation='bilinear')
-                plt.axis('off')
-                st.pyplot(plt)
-                
-                if nombre:
-                    st.success("Información procesada exitosamente")
+    if texto_usuario:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Análisis de sentimientos
+            sentimientos = analyze_sentiment(texto_usuario)
+            fig_sentimientos = create_sentiment_chart(sentimientos)
+            st.plotly_chart(fig_sentimientos, use_container_width=True)
             
-            except Exception as e:
-                st.error(f"Hubo un error al procesar el texto: {str(e)}")
-        else:
-            st.warning("Por favor, escribe algo antes de generar la visualización.")
+        with col2:
+            # Word Cloud
+            stop_words = set(stopwords.words('spanish'))
+            wordcloud = WordCloud(
+                width=800,
+                height=400,
+                background_color='white',
+                stopwords=stop_words,
+                colormap='viridis'
+            ).generate(texto_usuario)
+            
+            plt.figure(figsize=(10, 5))
+            plt.imshow(wordcloud, interpolation='bilinear')
+            plt.axis('off')
+            st.pyplot(plt)
+        
+        # Métricas del texto
+        st.markdown("### Métricas del texto")
+        metricas = analyze_text_metrics(texto_usuario)
+        cols = st.columns(len(metricas))
+        for col, (metrica, valor) in zip(cols, metricas.items()):
+            col.metric(metrica, valor)
     
-    # Pie de página con información de privacidad
+    # Pie de página
     st.markdown("""
-        <div style='margin-top: 2rem; padding: 10px; text-align: center; 
-        font-size: 0.8em; color: #666666; background-color: #f8f9fa; 
-        border-radius: 5px;'>
-        Tu privacidad es importante. Toda la información compartida aquí está 
-        protegida y es confidencial.
+        <div style='position: fixed; bottom: 0; left: 0; right: 0; background-color: white; padding: 10px; text-align: center; font-size: 0.8em; color: #666;'>
+        Tu privacidad es importante. Toda la información compartida aquí está protegida y es confidencial.
         </div>
     """, unsafe_allow_html=True)
 
