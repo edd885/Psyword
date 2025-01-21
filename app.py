@@ -29,7 +29,7 @@ st.markdown("""
         padding: 2rem;
     }
     .stTextInput > div > div > input {
-        background-color: white;
+        background-color: grey;
     }
     .stTextArea > div > div > textarea {
         background-color: white;
